@@ -20,20 +20,21 @@ end
 
 DB.create_table! :users do
   primary_key :id
-  String      :email,          :size => 255
-  String      :nickname,       :size => 255
-  String      :formatted_name, :size => 255
-  String      :provider,       :size => 255
-  String      :identifier,     :size => 255
-  String      :phote_url,      :size => 255
-  String      :location,       :size => 255
-  String      :description,    :size => 255
+  String      :email,          :size => 255, :null => false
+  String      :nickname,       :size => 255, :null => false, unique => true
+  String      :formatted_name, :size => 255, :null => false
+  String      :provider,       :size => 255, :null => false
+  String      :identifier,     :size => 255, :null => false
+  String      :phote_url,      :size => 255, :null => false
+  String      :location,       :size => 255, :null => false
+  String      :description,    :size => 255, :null => false
 end
 
 DB.create_table! :statuses do
   primary_key :id
-  String      :text,           :size => 140
-  DateTime    :created_at
+  foreign_key :recipient_id,   :class => :User
+  String      :text,           :size => 140, :null => false
+  DateTime    :created_at,                   :null => false
 end
 
 DB.create_table! :relationships do
@@ -52,23 +53,43 @@ end
 
 # ASSOCIATIONS ===============================
 
+# 1) The Relationship class defines the many-to-many relationship between users,
+#    that is it defines who follows who. 
+# 2) The Mention class defines the many-to-many relationship between users and statuses (aka tweets). 
+#    -- Each status can mention one or more users and 
+#    -- each user can be mentioned in one or more statuses. 
+# 3) A user can have one or more statuses, 
+#    while only one user can be the recipient of a status. 
+# 4) A user can also have one or more direct messages (because we're modeling direct messages with statuses.)
+
+
 class User < Sequel::Model
   one_to_many  :statuses      
   one_to_many  :direct_messages, :class => :Status
-  many_to_many :relationships,   :class => self,   :join_table => :relationships, :right_key => :follower_id  # 2)
-  many_to_many :followers,       :class => self,   :join_table => :relationships, :right_key => :follower_id  # :left_key is default :user_id
-  many_to_many :follows,         :class => self,   :join_table => :relationships, :right_key => :user_id, :left_key => :follower_id
+  many_to_many :relationships,   :class => self,    :join_table => :relationships, :right_key => :follower_id  # 2)
+  many_to_many :followers,       :class => self,    :join_table => :relationships, :right_key => :follower_id  # :left_key is default :user_id
+  many_to_many :follows,         :class => self,    :join_table => :relationships, :right_key => :user_id, :left_key => :follower_id
   many_to_many :mentions,        :class => :Status, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
   many_to_many :mentioned_statuses,   
-                                 :class => :Status, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
+                                 :class => :Status, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
+                                 
+  def self.find(identifier)
+    u = first(:identifier => identifier)
+    u = new(:identifier => identifier)
+  end
 end
 
 
 class Status < Sequel::Model
-  many_to_one :recipient, :class => :User
-  many_to_one :user
-  many_to_many :mentions, :class => :User, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
-  many_to_many :mentioned_users, :class => :User, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
+  many_to_one  :recipient,       :class => :User
+  many_to_one  :user
+  many_to_many :mentions,        :class => :User, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
+  many_to_many :mentioned_users, :class => :User, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
+  
+  def after_create
+    self.created_at ||= Time.now
+    super
+  end
 end
 
 
