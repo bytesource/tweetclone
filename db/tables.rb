@@ -18,21 +18,37 @@ end
 
 # TABLES =====================================
 
+# NOTE: parent table :users has to be the first as the following tables reference its
+#       primary key.
+#       Likewise, drop table :users using 'cascade': DROP TABLE USERS CASCADE;
 DB.create_table! :users do
   primary_key :id
-  String      :email,          :size => 255, :null => false
-  String      :nickname,       :size => 255, :null => false, unique => true
-  String      :formatted_name, :size => 255, :null => false
-  String      :provider,       :size => 255, :null => false
-  String      :identifier,     :size => 255, :null => false
-  String      :phote_url,      :size => 255, :null => false
-  String      :location,       :size => 255, :null => false
-  String      :description,    :size => 255, :null => false
+  String      :email,          :size => 255# , :null => false
+  String      :nickname,       :size => 255# , :null => false, :unique => true
+  String      :formatted_name, :size => 255# , :null => false
+  String      :provider,       :size => 255# , :null => false
+  String      :identifier,     :size => 255# , :null => false
+  String      :phote_url,      :size => 255# , :null => false
+  String      :location,       :size => 255# , :null => false
+  String      :description,    :size => 255# , :null => false
+  
+  
+  # validates_is_unique :nickname, :message => "Someone else has taken up this nickname, try something else!"
+
 end
 
 DB.create_table! :statuses do
   primary_key :id
-  foreign_key :recipient_id,   :class => :User
+  # http://sequel.rubyforge.org/rdoc/classes/Sequel/Schema/Generator.html#method-i-column
+  # :key
+  # For foreign key columns, the column in the associated table that this column references. 
+  # Unnecessary if this column references the primary key of the associated table, 
+  # EXCEPT if you are using MySQL.
+  
+  # http://sequel.rubyforge.org/rdoc/classes/Sequel/Schema/Generator.html#method-i-foreign_key
+  # foreign_key(:artist_id, :artists, :type=>String) # artist_id varchar(255) REFERENCES artists(id)
+  foreign_key :recipient,   :users, :key => :id, :on_update => :cascade, :on_delete => :cascade   # who is the recipient (for direct messages)
+  foreign_key :user_id,     :users, :key => :id, :on_update => :cascade, :on_delete => :cascade   # who is the sender
   String      :text,           :size => 140, :null => false
   DateTime    :created_at,                   :null => false
 end
