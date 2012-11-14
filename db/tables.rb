@@ -21,23 +21,25 @@ end
 # NOTE: parent table :users has to be the first as the following tables reference its
 #       primary key.
 #       Likewise, drop table :users using 'cascade': DROP TABLE USERS CASCADE;
-DB.create_table! :users do
+DB.create_table? :users do
   primary_key :id
   String      :email,          :size => 255# , :null => false
   String      :nickname,       :size => 255# , :null => false, :unique => true
   String      :formatted_name, :size => 255# , :null => false
   String      :provider,       :size => 255# , :null => false
-  String      :identifier,     :size => 255# , :null => false
+  String      :identifier,     :size => 255# , :null => false    # Google OpenID identifier used by RPX (1)
   String      :phote_url,      :size => 255# , :null => false
   String      :location,       :size => 255# , :null => false
   String      :description,    :size => 255# , :null => false
-  
-  
-  # validates_is_unique :nickname, :message => "Someone else has taken up this nickname, try something else!"
-
 end
 
-DB.create_table! :statuses do
+# (1)
+# :identifier format example: 
+# https://www.google.com/accounts/o8/id?id=AItOawnFFjWL15Ie5xEw4EB4RBxnd_ervO
+
+
+
+DB.create_table? :statuses do
   primary_key :id
   # http://sequel.rubyforge.org/rdoc/classes/Sequel/Schema/Generator.html#method-i-column
   # :key
@@ -53,13 +55,13 @@ DB.create_table! :statuses do
   DateTime    :created_at,                   :null => false
 end
 
-DB.create_table! :relationships do
+DB.create_table? :relationships do # join table user <=> user
   Integer :user_id
   Integer :follower_id
   primary_key [:user_id, :follower_id]   # 1)
 end
 
-DB.create_table! :mentions do
+DB.create_table? :mentions do     # join table user <=> status
   Integer :user_id
   Integer :status_id
   primary_key [:user_id, :status_id]
@@ -88,11 +90,6 @@ class User < Sequel::Model
   many_to_many :mentions,        :class => :Status, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
   many_to_many :mentioned_statuses,   
                                  :class => :Status, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
-                                 
-  def self.find(identifier)
-    u = first(:identifier => identifier)
-    u = new(:identifier => identifier)
-  end
 end
 
 
