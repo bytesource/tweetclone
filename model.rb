@@ -36,6 +36,9 @@ class User < Sequel::Model
     #    LIMIT 10">
   end
   
+  # Retrieve all statuses that are relevant to this user:
+  # -- Messages he posted himself.
+  # -- Messages of people he follows.
   def displayed_statuses
     statuses = []
     statuses += self.query.all
@@ -58,11 +61,72 @@ p user1.relationships
 #    INNER JOIN "relationships" ON (("relationships"."follower_id" = "users"."id") AND 
 #                                   ("relationships"."user_id" = 5))
 # p user1.followers
-# SELECT "users".* FROM "users" INNER JOIN "relationships" ON (("relationships"."follower_id" = "users"."id") AND ("relationships"."user_id" = 3))
+# SELECT "users".* FROM "users" 
+#    INNER JOIN "relationships" ON (("relationships"."follower_id" = "users"."id") AND 
+#                                   ("relationships"."user_id" = 3))
 # p user1.follows
-# SELECT "users".* FROM "users" INNER JOIN "relationships" ON (("relationships"."user_id" = "users"."id") AND ("relationships"."follower_id" = 3))
+# SELECT "users".* FROM "users" 
+#    INNER JOIN "relationships" ON (("relationships"."user_id" = "users"."id") AND 
+#                                   ("relationships"."follower_id" = 3))
+
+class Status < Sequel::Model
+  
+  # str = "a.c"    => "a.c"
+  # re  = /#{str}/ => /a.c/
+  def starts_with(regex)
+    /\A#{regex}/
+  end
+    
+  def before_save
+    @mentions = []
+    case self.text                    # self => object instance
+    when starts_with("D ")            # direct message
+      process_direct_message
+    when starts_with("follows ")
+      process_follow
+    else
+      process
+  end
+  
+  def after_save
+    unless @mentions.nil?
+      @mentions.each do |m|
+        m.status = self
+        m.save
+      end
+    end
+  end
+ 
+  def process
+    # process URL
+    urls = self.text.scan(URL_REGEXP)
+    urls.each do |url|
+      tiny_url = open("http://tinyurl.com/api-create.php?url=")
+    end
+  end
+    
+
+  
+
+ def process
+  # process url
+  urls = self.text.scan(URL_REGEXP)
+  urls.each { |url|
+    tiny_url = open("http://tinyurl.com/api-create.php?url=#{url[0]}") {|s| s.read}
+    self.text.sub!(url[0], "<a href='#{tiny_url}'>#{tiny_url}</a>") # url[0] should be url
+  }
+  # process @
+  ats = self.text.scan(AT_REGEXP)
+  ats.each { |at|
+    user = User.first(:nickname => at[1,at.length])
+    if user
+      self.text.sub!(at, "<a href='/#{user.nickname}'>#{at}</a>")
+      @mentions << Mention.new(:user => user, :status => self)
+    end
+  }
+end
 
 
 
 
-
+end
