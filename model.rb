@@ -1,4 +1,8 @@
+require 'open-uri'
 require_relative "db/tables"
+
+URL_REGEXP = Regexp.new('\b ((https?|telnet|gopher|file|wais|ftp) : [\w/#~:.?+=&%@!\-] +?) (?=[.:?\-] * (?: [^\w/#~:.?+=&%@!\-]| $ ))', Regexp::EXTENDED)
+AT_REGEXP  = Regexp.new('@[\w.@_-]+', Regexp::EXTENDED)
 
 class User < Sequel::Model
   plugin :validation_helpers
@@ -52,14 +56,20 @@ class User < Sequel::Model
   end
 end
 
-user1 = User.create
-user2 = User.create
-p user1.query(user2)
+# user1 = User.create
+# user2 = User.create
+# p user1.query(user2)
 # "SELECT * FROM \"statuses\" WHERE (\"statuses\".\"user_id\" = 2)">
-p user1.relationships
+# p user1.relationships
 # SELECT "users".* FROM "users" 
 #    INNER JOIN "relationships" ON (("relationships"."follower_id" = "users"."id") AND 
 #                                   ("relationships"."user_id" = 5))
+
+# Correct as per Stackoverflow: http://stackoverflow.com/questions/5113195/get-followers-twitter-like-using-mysql
+# SELECT COUNT(me.A) FROM social AS me 
+#    INNER JOIN social AS you ON me.A = you.B AND me.B = you.A
+# WHERE me.A = 1
+
 # p user1.followers
 # SELECT "users".* FROM "users" 
 #    INNER JOIN "relationships" ON (("relationships"."follower_id" = "users"."id") AND 
@@ -80,53 +90,90 @@ class Status < Sequel::Model
   def before_save
     @mentions = []
     case self.text                    # self => object instance
-    when starts_with("D ")            # direct message
+    when starts_with(/D\s/)           # direct message
       process_direct_message
-    when starts_with("follows ")
+    when starts_with(/(F|f)ollows\s/)
       process_follow
+      # http://sequel.rubyforge.org/rdoc/files/doc/model_hooks_rdoc.html => Halting Hook Processing
+      return false # Halt saving of self, as a 'follows' message is not a real message.
     else
       process
+    end
+    
+    super  # Don't forget to call super when overriding Sequel::Model's methods
   end
   
-  def after_save
-    unless @mentions.nil?
-      @mentions.each do |m|
-        m.status = self
-        m.save
+  # def after_save 
+  #   unless @mentions.nil?  # @mentions = [Mention instance, Mention instance, ...]
+  #     @mentions.each do |m|
+  #       m.status = self
+  #       m.save
+  #     end
+  #   end
+  # end
+  
+  def after_save 
+    unless @mentions.nil? # @mentions = ['nick1', 'nick2', ...]
+      @mentions.each do |nickname|
+        Mention.create(:user_id => nickname, :status_id => self.id) # self already saved to database => We have self.id
       end
     end
   end
- 
+  
   def process
     # process URL
     urls = self.text.scan(URL_REGEXP)
     urls.each do |url|
-      tiny_url = open("http://tinyurl.com/api-create.php?url=")
+      # OpenURI::OpenRead#open 
+      # If block given, yields the IO object and returns the value of the block.
+      tiny_url = open("http://tinyurl.com/api-create.php?url=#{url}") { |s| s.read } # changed url[0] to url
+      self.text.sub!(url, "<a href='#{tiny_url}'>#{tiny_url}</a>")
+    end
+    
+    # process @
+    at_signs = self.text.scan(AT_REGEXP)
+    at_signs.each do |at|
+      nickname = at[1..-1]
+      user = User.first(:nickname => nickname) 
+      if user
+        self.text.sub!(at, "<a href='/#{user.nickname}'>#{at}</a>}")
+        # Problem: self not saved to db yet (we are inside #before_save) so there is no self.id
+        # @mentions << Mention.new(:user_id => nickname, :status_id => self.id) # will be saved in #after_save
+        @mentions << nickname
+      end   
     end
   end
-    
+  
+  # Process direct messages
+  def process_direct_message
+    addressee = User.first(:nickname => self.text.split[1])  # text.split => ['D', 'nickname', 'many', 'more', 'words']
+    self.recipient = addressee.id
+    self.text = self.text.split[2..-1].join(' ')             # remove the first 2 words
+    process
+  end
+  
+  # Process follow commands
+  def process_follow
+    user     = User.first(:nickname => self.text.split[1]) 
+    Relationship.create(:user => user.id, :follower => self.owner)
+    # We stop processing at this point because we don't want to save the tweet (
+    # it's not really a tweet but a command to Tweetclone), 
+    # so we throw a halt exception, which DataMapper will interpret, stopping the save from proceeding.
+    # throw :halt
+    # NOTE: Using Sequel we return false in #before_save to stop saving of the status to the database.
+    # http://sequel.rubyforge.org/rdoc/files/doc/model_hooks_rdoc.html => Halting Hook Processing
+  end
+  
+  def to_json(*a)
+    {'id' => id, 'text' => text, 'created_at' => created_at, 'owner' => owner}.to_json(*a)
+  end
+  
+end
 
   
+  
 
- def process
-  # process url
-  urls = self.text.scan(URL_REGEXP)
-  urls.each { |url|
-    tiny_url = open("http://tinyurl.com/api-create.php?url=#{url[0]}") {|s| s.read}
-    self.text.sub!(url[0], "<a href='#{tiny_url}'>#{tiny_url}</a>") # url[0] should be url
-  }
-  # process @
-  ats = self.text.scan(AT_REGEXP)
-  ats.each { |at|
-    user = User.first(:nickname => at[1,at.length])
-    if user
-      self.text.sub!(at, "<a href='/#{user.nickname}'>#{at}</a>")
-      @mentions << Mention.new(:user => user, :status => self)
-    end
-  }
-end
+  
+  
 
-
-
-
-end
+    

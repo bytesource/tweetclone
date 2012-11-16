@@ -22,9 +22,8 @@ end
 #       primary key.
 #       Likewise, drop table :users using 'cascade': DROP TABLE USERS CASCADE;
 DB.create_table? :users do
-  primary_key :id
+  String      :nickname,       :size => 255, :primary_key => true
   String      :email,          :size => 255# , :null => false
-  String      :nickname,       :size => 255# , :null => false, :unique => true
   String      :formatted_name, :size => 255# , :null => false
   String      :provider,       :size => 255# , :null => false
   String      :identifier,     :size => 255# , :null => false    # Google OpenID identifier used by RPX (1)
@@ -49,10 +48,11 @@ DB.create_table? :statuses do
   
   # http://sequel.rubyforge.org/rdoc/classes/Sequel/Schema/Generator.html#method-i-foreign_key
   # foreign_key(:artist_id, :artists, :type=>String) # artist_id varchar(255) REFERENCES artists(id)
-  foreign_key :recipient,   :users, :key => :id, :on_update => :cascade, :on_delete => :cascade   # who is the recipient (for direct messages)
-  foreign_key :user_id,     :users, :key => :id, :on_update => :cascade, :on_delete => :cascade   # who is the sender
-  String      :text,           :size => 140, :null => false
-  DateTime    :created_at,                   :null => false
+  foreign_key :recipient,   :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :set_null
+  # :on_update, :on_delete: see http://sequel.rubyforge.org/rdoc/files/doc/schema_modification_rdoc.html
+  foreign_key :owner,       :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade   # who is the sender
+  String      :text,        :size => 140, :null => false
+  DateTime    :created_at,  :null => false
 end
 
 DB.create_table? :relationships do # join table user <=> user
@@ -101,9 +101,13 @@ class Status < Sequel::Model
   
   def after_create
     self.created_at ||= Time.now
-    super
+    super # ($)
   end
 end
+
+# ($)
+# The one important thing to note here is the call to super inside the hook. 
+# Whenever you override one of Sequel::Model's methods, you should be calling super to get the default behavior. 
 
 
 # Datamapper Associations:
