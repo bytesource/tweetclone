@@ -2,7 +2,7 @@ require 'open-uri'
 require_relative "db/tables"
 
 URL_REGEXP = Regexp.new('\b ((https?|telnet|gopher|file|wais|ftp) : [\w/#~:.?+=&%@!\-] +?) (?=[.:?\-] * (?: [^\w/#~:.?+=&%@!\-]| $ ))', Regexp::EXTENDED)
-AT_REGEXP  = Regexp.new('@[\w.@_-]+', Regexp::EXTENDED)
+AT_REGEXP  = Regexp.new('@[\w.@_-]+', Regexp::EXTENDED) # starts with @, followed by any number of allowed.
 
 class User < Sequel::Model
   plugin :validation_helpers
@@ -56,7 +56,7 @@ class User < Sequel::Model
   end
 end
 
-# user1 = User.create
+user1 = User.create
 # user2 = User.create
 # p user1.query(user2)
 # "SELECT * FROM \"statuses\" WHERE (\"statuses\".\"user_id\" = 2)">
@@ -65,19 +65,23 @@ end
 #    INNER JOIN "relationships" ON (("relationships"."follower_id" = "users"."id") AND 
 #                                   ("relationships"."user_id" = 5))
 
+p user1.id
+# => 9
+# TODO: Check following SQL query with answer on Stackoverflow:
+#       http://stackoverflow.com/questions/5107040/get-followers-and-following-in-one-query-using-mysql?rq=1
+# TODO: Google 'Sequel complicated queries'
+p user1.followers
+# SELECT "users".* FROM "users" INNER JOIN "relationships" 
+#      ON (("relationships"."follower_id" = "users"."id") AND 
+#          ("relationships"."user_id" = 7))
+
+# =====================
+# Querying friendship relation (A follows B, B follows A)
 # Correct as per Stackoverflow: http://stackoverflow.com/questions/5113195/get-followers-twitter-like-using-mysql
 # SELECT COUNT(me.A) FROM social AS me 
 #    INNER JOIN social AS you ON me.A = you.B AND me.B = you.A
 # WHERE me.A = 1
 
-# p user1.followers
-# SELECT "users".* FROM "users" 
-#    INNER JOIN "relationships" ON (("relationships"."follower_id" = "users"."id") AND 
-#                                   ("relationships"."user_id" = 3))
-# p user1.follows
-# SELECT "users".* FROM "users" 
-#    INNER JOIN "relationships" ON (("relationships"."user_id" = "users"."id") AND 
-#                                   ("relationships"."follower_id" = 3))
 
 class Status < Sequel::Model
   
@@ -121,26 +125,37 @@ class Status < Sequel::Model
   end
   
   def process
-    # process URL
+    # process URLs
+    process_embedded_urls(self.text)
+    # process @
+    process_embedded_mentions(self.text)
+  end
+  
+  def process_embedded_urls(message)
     urls = self.text.scan(URL_REGEXP)
     urls.each do |url|
       # OpenURI::OpenRead#open 
       # If block given, yields the IO object and returns the value of the block.
+      # Example: http://tinyurl.com/api-create.php?url=http://www.sovonex.com
+      #          s = http://tinyurl.com/a3owap5
       tiny_url = open("http://tinyurl.com/api-create.php?url=#{url}") { |s| s.read } # changed url[0] to url
       self.text.sub!(url, "<a href='#{tiny_url}'>#{tiny_url}</a>")
     end
-    
-    # process @
+  end
+  
+  def process_embedded_mentions(message)
     at_signs = self.text.scan(AT_REGEXP)
     at_signs.each do |at|
-      nickname = at[1..-1]
-      user = User.first(:nickname => nickname) 
+      nickname = at[1..-1]  # remove @ from nickname
+      user     = User.first(:nickname => nickname) 
       if user
-        self.text.sub!(at, "<a href='/#{user.nickname}'>#{at}</a>}")
-        # Problem: self not saved to db yet (we are inside #before_save) so there is no self.id
+        self.text.sub!(at, "<a href='/#{user.nickname}'>#{at}</a>}") # Link to nickname's statuses
         # @mentions << Mention.new(:user_id => nickname, :status_id => self.id) # will be saved in #after_save
+        # Problem: self not saved to database yet (we are inside #before_save) so there is no self.id
+        # Solution: We store the nicknames of all mentioned users in an array and create and save Mention instances
+        #           AFTER self (this status) has been save to the database.
         @mentions << nickname
-      end   
+      end
     end
   end
   

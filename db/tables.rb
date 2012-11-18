@@ -55,15 +55,15 @@ DB.create_table? :statuses do
   DateTime    :created_at,  :null => false
 end
 
-DB.create_table? :relationships do # join table user <=> user
-  Integer :user_id
-  Integer :follower_id
+DB.create_table? :relationships do # join table users <=> users
+  foreign_key :user_id,     :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
+  foreign_key :follower_id, :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
   primary_key [:user_id, :follower_id]   # 1)
 end
 
-DB.create_table? :mentions do     # join table user <=> status
-  Integer :user_id
-  Integer :status_id
+DB.create_table? :mentions do     # join table users <=> statuses
+  foreign_key :user_id,      :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
+  foreign_key :status_id,    :statuses, :key => :id, :on_update => :cascade, :on_delete => :cascade
   primary_key [:user_id, :status_id]
 end
 
@@ -84,13 +84,20 @@ end
 class User < Sequel::Model
   one_to_many  :statuses      
   one_to_many  :direct_messages, :class => :Status
-  many_to_many :relationships,   :class => self,    :join_table => :relationships, :right_key => :follower_id  # 2)
-  many_to_many :followers,       :class => self,    :join_table => :relationships, :right_key => :follower_id  # :left_key is default :user_id
-  many_to_many :follows,         :class => self,    :join_table => :relationships, :right_key => :user_id, :left_key => :follower_id
-  many_to_many :mentions,        :class => :Status, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
+  
+  many_to_many :relationships,  # friendship relation: A follows B, B follows A 
+               :class => self,    :join_table => :relationships, :left_key => :user_id, :right_key => :follower_id
+               # :left_primary_key => 'default: PK of current table', :right_primary_key => 'default: PK of associated table'
+  many_to_many :followers,       
+               :class => self,    :join_table => :relationships, :left_key => :user_id, :right_key => :follower_id
+  many_to_many :follows,         
+               :class => self,    :join_table => :relationships, :right_key => :user_id, :left_key => :follower_id
+  many_to_many :mentions,        
+               :class => :Status, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
   many_to_many :mentioned_statuses,   
-                                 :class => :Status, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
+               :class => :Status, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
 end
+
 
 
 class Status < Sequel::Model
@@ -159,18 +166,32 @@ end
 # 1)
 # If you want to create a composite primary key, 
 # you should call the primary_key method with an array of column symbols.
+
 # http://sequel.rubyforge.org/rdoc/files/doc/schema_modification_rdoc.html
 
-# 2)`
+# 2)
 # :class -------------
-# If the class of the association can not be guessed directly by looking at the association name, 
-# you need to specify it via the :class option.
-# :left_key ----------
-# foreign key in join table that points to current model's primary key, as a symbol. 
-# Defaults to :"#{self.name.underscore}_id". Can use an array of symbols for a composite key association.
-# right_key ----------
-# foreign key in join table that points to associated model's primary key, as a symbol. 
-# Defaults to :"#{name.to_s.singularize}_id". Can use an array of symbols for a composite key association.
+#    If the class of the association can not be guessed directly by looking at the association name, 
+#    you need to specify it via the :class option.
 # Source: http://sequel.rubyforge.org/rdoc/files/doc/association_basics_rdoc.html
+
+# :left_key ---------- (located in current table)
+#    FOREIGN KEY in JOIN TABLE that points to current model's primary key, as a symbol. 
+#    Defaults to :"#{self.name.underscore}_id". Can use an array of symbols for a composite key association.
+# :left_primary_key -- (located in current table)
+#    Column in current table that :left_key points to, as a symbol. 
+#    Defaults to primary key of current table. 
+#    Can use an array of symbols for a composite key association.
+
+# right_key ---------- (located in current table)
+#   FOREIGN KEY in JOIN TABLE that points to associated model's primary key, as a symbol. 
+#   Defaults to :"#{name.to_s.singularize}_id". Can use an array of symbols for a composite key association.
+# right_primary_key -- (located in associated table)
+#   Column in associated table that :right_key points to, as a symbol.
+#   Defaults to primary key of the associated table.
+#   Can use an array of symbols for a composite key association.
+
+
+# Source: http://sequel.rubyforge.org/rdoc/classes/Sequel/Model/Associations/ClassMethods.html
 
 
