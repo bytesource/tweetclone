@@ -21,6 +21,7 @@ end
 # NOTE: parent table :users has to be the first as the following tables reference its
 #       primary key.
 #       Likewise, drop table :users using 'cascade': DROP TABLE USERS CASCADE;
+#                                                    drop table users, statuses, relationships, mentions cascade;
 DB.create_table? :users do
   String      :nickname,       :size => 255, :primary_key => true
   String      :email,          :size => 255# , :null => false
@@ -68,7 +69,6 @@ DB.create_table? :mentions do     # join table users <=> statuses
 end
 
 
-
 # ASSOCIATIONS ===============================
 
 # 1) The Relationship class defines the many-to-many relationship between users,
@@ -98,7 +98,14 @@ class User < Sequel::Model
                :class => :Status, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
 end
 
+# http://sequel.rubyforge.org/rdoc/classes/Sequel/Model/ClassMethods.html#method-i-unrestrict_primary_key
+User.unrestrict_primary_key
+# Allow the setting of the primary key(s) when using the mass assignment methods. 
+# Using this method can open up security issues, be very careful before using it.
 
+# Artist.set(:id=>1) # Error
+# Artist.unrestrict_primary_key
+# Artist.set(:id=>1) # No Error
 
 class Status < Sequel::Model
   many_to_one  :recipient,       :class => :User

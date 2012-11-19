@@ -56,7 +56,7 @@ class User < Sequel::Model
   end
 end
 
-user1 = User.create
+user1 = User.find(:nickname => "Stefan") || User.create(:nickname => "Stefan")
 # user2 = User.create
 # p user1.query(user2)
 # "SELECT * FROM \"statuses\" WHERE (\"statuses\".\"user_id\" = 2)">
@@ -67,13 +67,23 @@ user1 = User.create
 
 p user1.id
 # => 9
-# TODO: Check following SQL query with answer on Stackoverflow:
-#       http://stackoverflow.com/questions/5107040/get-followers-and-following-in-one-query-using-mysql?rq=1
-# TODO: Google 'Sequel complicated queries'
+puts "user.followers:"
 p user1.followers
-# SELECT "users".* FROM "users" INNER JOIN "relationships" 
-#      ON (("relationships"."follower_id" = "users"."id") AND 
-#          ("relationships"."user_id" = 7))
+# SELECT "users".* FROM "users" 
+#   INNER JOIN "relationships" 
+#     ON (("relationships"."follower_id" = "users"."nickname") 
+#     AND ("relationships"."user_id" = 'Stefan'))   # why not use 'WHERE' here?
+
+puts "user.follows:"
+p user1.follows
+# SELECT "users".* FROM "users" 
+#   INNER JOIN "relationships" 
+#     ON (("relationships"."user_id" = "users"."nickname") 
+#     AND ("relationships"."follower_id" = 'Stefan'))
+
+puts "friends of users"
+p user1.followers { |ds| ds.filter(:nickname => 'hello') }
+
 
 # =====================
 # Querying friendship relation (A follows B, B follows A)
