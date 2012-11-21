@@ -49,9 +49,9 @@ DB.create_table? :statuses do
   
   # http://sequel.rubyforge.org/rdoc/classes/Sequel/Schema/Generator.html#method-i-foreign_key
   # foreign_key(:artist_id, :artists, :type=>String) # artist_id varchar(255) REFERENCES artists(id)
-  foreign_key :recipient,   :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :set_null
+  foreign_key :recipient_id,   :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :set_null
   # :on_update, :on_delete: see http://sequel.rubyforge.org/rdoc/files/doc/schema_modification_rdoc.html
-  foreign_key :owner,       :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade   # who is the sender
+  foreign_key :owner_id,       :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade   # who is the sender
   String      :text,        :size => 140, :null => false
   DateTime    :created_at,  :null => false
 end
@@ -63,7 +63,7 @@ DB.create_table? :relationships do # join table users <=> users
 end
 
 DB.create_table? :mentions do     # join table users <=> statuses
-  foreign_key :user_id,      :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
+  foreign_key :user_id,      :users,    :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
   foreign_key :status_id,    :statuses, :key => :id, :on_update => :cascade, :on_delete => :cascade
   primary_key [:user_id, :status_id]
 end
@@ -82,11 +82,11 @@ end
 
 
 class User < Sequel::Model
-  one_to_many  :statuses      
-  one_to_many  :direct_messages, :class => :Status
+  one_to_many  :statuses, :key => :owner_id      
+  # The :key option must be used if the default column symbol that Sequel would use is not the correct column.
+  # one_to_many: :key points to FOREIGN KEY OF ASSOCIATION - see 3)
+  one_to_many  :direct_messages, :class => :Status, :key => :recipient_id 
   
-  many_to_many :relationships,  # friendship relation: A follows B, B follows A 
-               :class => self,    :join_table => :relationships, :left_key => :user_id, :right_key => :follower_id
                # :left_primary_key => 'default: PK of current table', :right_primary_key => 'default: PK of associated table'
   many_to_many :followers,       
                :class => self,    :join_table => :relationships, :left_key => :user_id, :right_key => :follower_id
@@ -96,7 +96,21 @@ class User < Sequel::Model
                :class => :Status, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
   many_to_many :mentioned_statuses,   
                :class => :Status, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
+   
+  # A follows B and B follows A
+  # https://groups.google.com/forum/?fromgroups=#!topic/sequel-talk/x9bcFIaGZX4         
+  def friends
+    followers & follows
+  end
 end
+
+# Friends association using ::many_to_many
+# User.many_to_many :friends, :class=>User, 
+#                   :dataset=>proc{User.join(:relationships___ru, :user_id => :nickname).
+#                                       join(:relationships___rf, :follower_id=>:users__nickname).
+#                                       where(:ru__follower_id=>nickname, :rf__user_id=>nickname)}
+                                      
+# Writing an eager loader for the association is left as an exercise to the reader. :)
 
 # http://sequel.rubyforge.org/rdoc/classes/Sequel/Model/ClassMethods.html#method-i-unrestrict_primary_key
 User.unrestrict_primary_key
@@ -107,16 +121,27 @@ User.unrestrict_primary_key
 # Artist.unrestrict_primary_key
 # Artist.set(:id=>1) # No Error
 
-class Status < Sequel::Model
-  many_to_one  :recipient,       :class => :User
-  many_to_one  :user
+# ______________________________________________________________
+# NOTE: Don't give association and key column the same name! 
+# Otherwise you will get the following error:
+# => stack level too deep (SystemStackError)
+# ______________________________________________________________
+
+
+class Status < Sequel::Model  
+  many_to_one  :recipient,       :class => :User, :key => :recipient_id # *to_one: :key points to FOREIGN KEY OF SELF - see 3)
+  many_to_one  :owner,           :class => :User, :key => :owner_id
   many_to_many :mentions,        :class => :User, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
   many_to_many :mentioned_users, :class => :User, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
   
-  def after_create
+  # http://sequel.rubyforge.org/rdoc/files/doc/model_hooks_rdoc.html
+  def before_create # right before insert
     self.created_at ||= Time.now
     super # ($)
   end
+  
+  
+  
 end
 
 # ($)
@@ -198,7 +223,34 @@ end
 #   Defaults to primary key of the associated table.
 #   Can use an array of symbols for a composite key association.
 
-
+# 3)
 # Source: http://sequel.rubyforge.org/rdoc/classes/Sequel/Model/Associations/ClassMethods.html
 
+# :key
+# Source: http://sequel.rubyforge.org/rdoc/files/doc/association_basics_rdoc.html
+# The :key option must be used if the default column symbol that Sequel would use is not the correct column. For example:
 
+# class Album
+#   # Assumes :key is :artist_id, based on association name of :artist
+#   many_to_one :artist
+# end
+# class Artist
+#   # Assumes :key is :artist_id, based on class name of Artist
+#   one_to_many :albums
+# end
+
+# However, if your schema looks like:
+
+# Database schema:
+#  artists            albums
+#   :id   <----\       :id
+#   :name       \----- :artistid # Note missing underscore
+#                      :name
+# Then the default :key option will not be correct. To fix this, you need to specify an explicit :key option:
+
+# class Album
+#   many_to_one :artist, :key=>:artistid
+# end
+# class Artist
+#   one_to_many :albumst, :key=>:artistid
+# end
