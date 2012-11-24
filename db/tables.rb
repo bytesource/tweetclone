@@ -24,7 +24,7 @@ end
 #                                                    drop table users, statuses, relationships, mentions cascade;
 DB.create_table? :users do
   String      :nickname,       :size => 255, :primary_key => true
-  String      :email,          :size => 255# , :null => false
+  String      :email,          :size => 255
   String      :formatted_name, :size => 255# , :null => false
   String      :provider,       :size => 255# , :null => false
   String      :identifier,     :size => 255# , :null => false    # Google OpenID identifier used by RPX (1)
