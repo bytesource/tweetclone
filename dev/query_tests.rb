@@ -41,3 +41,22 @@ status = Status.create(:text => "first text")
 p status
 # => #<Status @values={:id=>5, :recipient=>nil, :owner=>nil, :text=>"first text", :created_at=>2012-11-20 12:18:16 +0800}>
 p status.recipient
+
+
+id = 1
+puts "message count"
+p Status.filter(:owner_id => id).exclude(:recipient_id => nil)
+# SELECT * FROM \"statuses\" WHERE ((\"owner_id\" = 1) AND (\"recipient_id\" IS NOT NULL))
+
+
+puts "count at end of association"
+p "Count = #{user1.statuses.count}"
+
+puts "includes?"
+p user1.statuses.include?(user1)
+
+
+
+
+
+

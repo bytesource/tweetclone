@@ -1,0 +1,25 @@
+.span-2
+  %img{:src => '/sheephead.gif'}
+.span-12
+  %a{:href => '/'}
+    %h2.banner TweetClone
+.span-4.prepend-3.last
+  %a{:href => '/'} [ login ] 
+.span-15.append-1
+  %h2.comic Recent Public Tweets 
+  .statuses
+    -@statuses.reverse.each do |status|
+      %hr
+      .span-2
+        %img.span-2{:src => "#{status.user.photo_url}"}
+      .span-13.last
+        %a{:href => "/#{status.user.nickname}"}
+          =status.user.nickname
+        &nbsp;
+        =status.text
+      %em.quiet
+        =time_ago_in_words(status.created_at.to_time)
+    %hr.space  
+.span-5
+  &nbsp;
+.span-2.last

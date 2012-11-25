@@ -1,0 +1,15 @@
+=snippet :'/snippets/text_limiter_js'
+%form{:method => 'post', :action => '/message/send'}
+  %h3 
+    Send 
+    %select{:name => 'recipient'}
+      -@friends.each do |user|
+        %option{:value => user.nickname} #{user.nickname}
+    a message:
+  %textarea.update.span-15#message{:name => 'message', :rows => 2, :onKeyDown => "text_limiter($('#message'), $('#counter'))"}
+  .span-6
+    %span#counter
+      140
+    characters left  
+  .prepend-12
+    %input#button{:type => 'submit', :value => 'send'}

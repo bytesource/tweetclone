@@ -1,0 +1,17 @@
+.messages
+  -@messages.each do |message|
+    %hr
+    .span-2
+      %img.span-2{:src => "#{message.recipient.photo_url}"}
+    .span-10
+      %a{:href => "/#{message.recipient.nickname}"}
+        =message.recipient.nickname
+      &nbsp;
+      =message.text
+    .span-3.last
+      %a{:href =>"#", :onclick => "$('#message').attr('value','D #{message.recipient.nickname} ');$('#message').focus();"} (reply)
+      %hr.space
+      .span-13.pull-10.last
+        %em.quiet
+          =time_ago_in_words(message.created_at.to_time)
+    %hr.space

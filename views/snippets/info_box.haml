@@ -1,0 +1,29 @@
+.span-2
+  %a
+    %img.span-2{:src => "#{@myself.photo_url}"}
+.span-3.last
+  .span-3 
+    %em #{@myself.nickname}
+  .span-3
+    %a{:href => '/follows'} #{@user.follows.count} following
+  .span-3
+    %a{:href => '/followers'} #{@user.followers.count} followers
+  .span-3
+    %a{:href => "/tweets"} #{@user.statuses.count} tweets
+%hr.space
+%a{:href => '/replies'}
+  ="@#{@myself.nickname}"
+%br
+.span-4
+  Direct messages 
+.span-1.last
+  #{@message_count}
+.span-5.last
+  %a{:href => '/messages/sent'} [sent]
+  %a{:href => '/messages/received'} [received]
+%hr.space
+.span-5.last
+  %h3.comic Follows
+  -@user.follows.each do |follow|
+    %a{:href => "/#{follow.nickname}"}
+      %img.smallpic{:src => "#{follow.photo_url}", :width => '24px', :alt => "#{follow.nickname}"}

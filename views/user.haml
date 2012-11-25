@@ -1,0 +1,52 @@
+=snippet :'/snippets/top'
+        
+.span-15
+  .span-2
+    %img.span-2{:src => "#{@user.photo_url}"}
+  .span-13.last
+    %h1
+      =@user.nickname
+      -if @user != @myself 
+        -if @myself.follows.include? @user
+          %form{:method => 'post', :action => "/follow/#{@myself.id}/#{@user.id}"}          
+            %input{:type => 'hidden', :name => '_method', :value => 'delete'}
+            %input#button{:type => 'submit', :value => 'unfollow'} 
+        -else
+          %input#button{:type => 'button', :value => 'follow', :onclick => "location.href='/follow/#{@user.nickname}'"} 
+  .span-15
+    %h2
+      =@user.statuses.pop.text unless @user.statuses.empty?
+    %em.quiet
+      =time_ago_in_words(@user.statuses.last.created_at.to_time) unless @user.statuses.empty?
+    %hr.space
+    -@user.statuses.reverse.each do |status|
+      %hr
+      .span-2
+        %img.span-2{:src => "#{status.owner.photo_url}"}
+      .span-13.last
+        %a{:href => "/#{status.owner.nickname}"}
+          =status.owner.nickname
+        =status.text
+        %hr.space
+        %em.quiet
+          =time_ago_in_words(status.created_at.to_time)
+      %hr.space
+.span-5
+  .span-5.last (Name):#{@user.formatted_name}
+  .span-5.last (Location): #{@user.location}
+  .span-5.last (Bio):#{@user.description}
+  .span-5.last
+    %br
+    #{@user.follows.count} following
+    %br
+    #{@user.followers.count} followers
+    %br
+    #{@user.statuses.count} tweets
+
+  %hr.space      
+  .span-5.reset
+    %h3
+      Follows
+    -@user.follows.each do |follow|
+      %a{:href => "/#{follow.nickname}"}
+        %img.smallpic{:src => "#{follow.photo_url}", :width => '24px', :alt => "#{follow.nickname}"}

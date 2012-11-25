@@ -1,29 +1,24 @@
-.span-24.top-passing.last
+.span-24.top-padding.last
   .span-4.prepend-3
     %img.span-4{:src => '/sheep.gif'}
   .span-12
-    %h1.title TweetClone
+    %h1.title TweetClone 
     %h2.comic Cloning is the sincerest form of flattery
   .span-2.last
-  # Redirect the user to the RPX site, 
-  # which in turn redirects the user to Google.
-  %a.rpxnow{:onclick => "return false;", 
-            :href    => "https://tweetclone.rpxnow.com/openid/v2/signin?token_url=#{@token}"}
-    %h3 Sign In
-    
+    %a.rpxnow{:onclick => "return false;", :href => "https://tweetclone.rpxnow.com/openid/v2/signin?token_url=#{@token}" } 
+      %h3 Sign In
+
   -if flash[:error]
     .span-24.last
-      .error
+      .error 
         = flash[:error]
-        
+
   %hr.space
-  
+
   .span-14.prepend-5
     %h2.alt
       
-%script{:src => "https://rpxnow.com/openid/v2/widget", 
-        :type => "text/javascript"}}
+%script{:src => "https://rpxnow.com/openid/v2/widget", :type => "text/javascript"}
 %script{:type => "text/javascript"}
   RPXNOW.overlay = true;
   RPXNOW.language_preference = 'en';
-  

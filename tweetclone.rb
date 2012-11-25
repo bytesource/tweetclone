@@ -67,7 +67,7 @@ get '/profile' do
   haml :profile
 end
 
-get 'change_profile' do 
+get '/change_profile' do 
   haml :change_profile 
 end
 
@@ -110,12 +110,14 @@ end
 
 get '/:nickname' do
   load_user(session[:userid])
+  # Example of @user != @myself
+  # @myself logged in as 'Bytesource' opening the personal site of one of my followers.
   @user = @myself.nickname == params[:nickname] ? @myself : User.first(:nickname => params[:nickname])
   @message_count = message_count
   if @myself == @user # redundant: we already have this checked in #diplayed_statuses
     @statuses = @myself.displayed_statuses
     haml :home
-  else
+  else 
     @statuses = @user.statuses
     haml :user
   end

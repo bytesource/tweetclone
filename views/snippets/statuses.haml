@@ -1,0 +1,20 @@
+.statuses
+  -@statuses.each do |status|
+    %hr
+    .span-2
+      %img.span-2{:src => "#{status.owner.photo_url}"}
+    .span-10
+      %a{:href => "/#{status.owner.nickname}"}
+        =status.owner.nickname
+      &nbsp;
+      =status.text
+    .span-3.last
+      %a{:href =>"#", :onclick => "$('#update').attr('value','@#{status.owner.nickname} ');$('#update').focus();"} (reply)
+      %br
+      %a{:href =>"#", :onclick => "$('#update').attr('value','D #{status.owner.nickname} ');$('#update').focus();"} (message)
+      %br        
+      %a{:href =>"#", :onclick => "$('#update').attr('value','RT @#{status.owner.nickname}: #{status.text} ');$('#update').focus();"} (retweet)
+
+    %em.quiet
+      =time_ago_in_words(status.created_at.to_time)
+    %hr.space

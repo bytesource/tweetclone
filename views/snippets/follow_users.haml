@@ -1,0 +1,10 @@
+.users
+  -@users.each do |user|
+    %hr
+    .span-2
+      %img.span-2{:src => "#{user.photo_url}"}
+      .small #{user.nickname}
+    .span-10
+      %a{:href => "/#{user.nickname}"}
+        %h3 #{user.formatted_name} | #{user.location}
+      =user.description

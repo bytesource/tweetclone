@@ -23,7 +23,8 @@ end
 #       Likewise, drop table :users using 'cascade': DROP TABLE USERS CASCADE;
 #                                                    drop table users, statuses, relationships, mentions cascade;
 DB.create_table? :users do
-  String      :nickname,       :size => 255, :primary_key => true
+  primary_key :id
+  String      :nickname,       :size => 255, :unique => true
   String      :email,          :size => 255
   String      :formatted_name, :size => 255# , :null => false
   String      :provider,       :size => 255# , :null => false
@@ -49,21 +50,26 @@ DB.create_table? :statuses do
   
   # http://sequel.rubyforge.org/rdoc/classes/Sequel/Schema/Generator.html#method-i-foreign_key
   # foreign_key(:artist_id, :artists, :type=>String) # artist_id varchar(255) REFERENCES artists(id)
-  foreign_key :recipient_id,   :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :set_null
+  # foreign_key :recipient_id,   :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :set_null
+  foreign_key :recipient_id,   :users, :key => :id, :on_update => :cascade, :on_delete => :set_null
   # :on_update, :on_delete: see http://sequel.rubyforge.org/rdoc/files/doc/schema_modification_rdoc.html
-  foreign_key :owner_id,       :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade   # who is the sender
+  # foreign_key :owner_id,       :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade   # who is the sender
+  foreign_key :owner_id,       :users, :key => :id, :on_update => :cascade, :on_delete => :cascade   # who is the sender
   String      :text,        :size => 140, :null => false
   DateTime    :created_at,  :null => false
 end
 
 DB.create_table? :relationships do # join table users <=> users
-  foreign_key :user_id,     :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
-  foreign_key :follower_id, :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
+  # foreign_key :user_id,     :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
+  foreign_key :user_id,     :users, :key => :id, :on_update => :cascade, :on_delete => :cascade
+  # foreign_key :follower_id, :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
+  foreign_key :follower_id, :users, :key => :id, :on_update => :cascade, :on_delete => :cascade
   primary_key [:user_id, :follower_id]   # 1)
 end
 
 DB.create_table? :mentions do     # join table users <=> statuses
-  foreign_key :user_id,      :users,    :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
+  # foreign_key :user_id,      :users,    :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
+  foreign_key :user_id,      :users,    :key => :id, :on_update => :cascade, :on_delete => :cascade
   foreign_key :status_id,    :statuses, :key => :id, :on_update => :cascade, :on_delete => :cascade
   primary_key [:user_id, :status_id]
 end
