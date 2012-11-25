@@ -29,9 +29,15 @@ helpers do
  # -- messages SENT BY the USER (recipient != nil)
  def message_count
    id = session[:userid]
-   sent_by_user = Status.filter(:owner_id => id).exclude(:recipient_id => nil).count # 1)
-   sent_to_user = Status.filter(:recipient_id => id).count
-   sent_by_user + sent_to_user
+   # sent_by_user = Status.filter(:owner_id => id).exclude(:recipient_id => nil).count # 1)
+   # sent_to_user = Status.filter(:recipient_id => id).count
+   # sent_by_user + sent_to_user
+  
+   # Using a single database query 
+   # http://sequel.rubyforge.org/rdoc/files/doc/dataset_filtering_rdoc.html => "Using OR instead of AND"
+   Status.filter(:owner_id => id).exclude(:recipient_id => nil). # 2)
+              or(:recipient_id => id).
+              count
  end
  
  # 1)
@@ -43,6 +49,13 @@ helpers do
  # We simply run haml again on the given page, and 
  # include any parameters we pass to it, 
  # only telling the haml page not to use the default layout.
+ 
+ # 2)
+ # SELECT COUNT(*) AS "count" FROM "statuses" 
+ #   WHERE ((("owner_id" = 1) AND ("recipient_id" IS NOT NULL)) 
+ #     OR ("recipient_id" = 1)) 
+ #   LIMIT 1
+ 
  def snippet(page, options={})
    haml page, options.merge!(:layout => false)
  end

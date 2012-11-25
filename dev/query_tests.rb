@@ -55,8 +55,12 @@ p "Count = #{user1.statuses.count}"
 puts "includes?"
 p user1.statuses.include?(user1)
 
+puts "adding OR method"
+# http://sequel.rubyforge.org/rdoc/files/doc/dataset_filtering_rdoc.html => "Using OR instead of AND"
+p Status.filter(:owner_id => id).exclude(:recipient_id => nil).or(:recipient_id => id).count
 
-
-
+# SELECT COUNT(*) AS "count" FROM "statuses" 
+#   WHERE ((("owner_id" = 1) AND ("recipient_id" IS NOT NULL)) 
+#     OR ("recipient_id" = 1)) LIMIT 1
 
 
