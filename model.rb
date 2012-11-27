@@ -96,7 +96,10 @@ class Status < Sequel::Model
         Mention.create(:user_id => nickname, :status_id => self.id) # self already saved to database => We have self.id
       end
     end
+    
+    super
   end
+  
   
   def process
     # process URLs

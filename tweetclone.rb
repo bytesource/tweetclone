@@ -21,7 +21,7 @@ get '/' do
     haml :login
   else # already logged in
     # redirect to user's homepage
-    redirect "/#{User.first(:nickname => user).nickname}"
+    redirect "/#{User.first(:id => user).nickname}"
   end
 end
 
@@ -122,6 +122,65 @@ get '/:nickname' do
     haml :user
   end
 end
+
+
+# To post status updates, the user submits a post form on 'home.haml'. 
+# The route then takes in the status text and creates the Status object. 
+# Note that when the Status object is created and saved,
+# the various processing logic in the before filter is called and executed. 
+# After the status is saved to the database, the user is 
+# redirected back to the home page, clearing the update text box.
+post '/update' do
+  user = User.first(session[:userid])
+  message = Status.create(:text => params[:status])
+  user.add_status(message)
+  redirect "/#{user.nickname}"
+end
+
+
+get '/replies' do
+  load_user(session[:userid])
+  # Note: Sequel should return an empty array for an empty result by default.
+  @statuses = @myself.mentioned_statuses || []  
+  @message_count = message_count
+  haml :replies
+end
+
+get '/tweets' do
+  load_user(session[:userid])
+  @status = @myself.statuses
+  haml :user
+end
+
+
+get '/messages/:direction' do
+  load_user(session[:userid])
+  @friend = @myself.friends
+  case params[:direction]
+  when 'received' 
+    @messages = Status.filter(:recipient_id => @myself.id).all
+    @label    = "Direct messages sent only to you"
+  when 'sent'
+    @messages = Status.filter(:owner_id => @myself.id).exclude(:recipient_id => nil).all
+    @label    = "Direct messages you've sent"
+  end
+  @message_count = message_count
+  haml :messages
+end
+
+post '/message/send' do
+  recipient = User.first(:nickname => params[:recipient])
+  Status.create(:text         => params[:message],
+                :owner_id     => User.first(:id => session[:userid]),
+                :recipient_id => recipient)
+  redirect '/messages/sent'
+end
+
+
+
+
+
+
 
 
 

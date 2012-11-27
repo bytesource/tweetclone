@@ -11,10 +11,10 @@
     -@statuses.reverse.each do |status|
       %hr
       .span-2
-        %img.span-2{:src => "#{status.user.photo_url}"}
+        %img.span-2{:src => "#{status.owner.photo_url}"}
       .span-13.last
-        %a{:href => "/#{status.user.nickname}"}
-          =status.user.nickname
+        %a{:href => "/#{status.owner.nickname}"}
+          =status.owner.nickname
         &nbsp;
         =status.text
       %em.quiet

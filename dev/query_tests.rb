@@ -63,4 +63,7 @@ p Status.filter(:owner_id => id).exclude(:recipient_id => nil).or(:recipient_id 
 #   WHERE ((("owner_id" = 1) AND ("recipient_id" IS NOT NULL)) 
 #     OR ("recipient_id" = 1)) LIMIT 1
 
+puts "Printing all statuses"
+p Status.all
+
 
