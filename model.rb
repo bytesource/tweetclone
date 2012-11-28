@@ -147,7 +147,7 @@ class Status < Sequel::Model
   # Process follow commands
   def process_follow
     user     = User.first(:nickname => self.text.split[1]) 
-    Relationship.create(:user => user.id, :follower => self.owner)
+    Relationship.create(:user_id => user.id, :follower_id => self.owner.id)
     # We stop processing at this point because we don't want to save the tweet (
     # it's not really a tweet but a command to Tweetclone), 
     # so we throw a halt exception, which DataMapper will interpret, stopping the save from proceeding.
@@ -156,8 +156,15 @@ class Status < Sequel::Model
     # http://sequel.rubyforge.org/rdoc/files/doc/model_hooks_rdoc.html => Halting Hook Processing
   end
   
+  # While the JSON gem recognizes standard Ruby classes, 
+  # it doesn't recognize our specific classes like User or Status. 
+  # To enable a JSON view of the Status object, 
+  # we add a  method in the Status object.
   def to_json(*a)
-    {'id' => id, 'text' => text, 'created_at' => created_at, 'owner' => owner}.to_json(*a)
+    {'id'         => id, 
+     'text'       => text, 
+     'created_at' => created_at, 
+     'user'       => User.first(:id => owner_id).nickname}.to_json(*a)
   end
   
 end

@@ -76,9 +76,56 @@ helpers do
     else            timestamp.strftime('%I:%M %p %d-%b-%Y')
     end
   end
+  
+  
+  # API
+  
+  # This method responds to the client with a 
+  # -- 401 Not Authorized status code as well as a 
+  # -- WWW-Authenticate header and 
+  # -- the authentication realm, 
+  # unless the client is already authorized.
+  def protected!
+    if !authorized?
+      response['WWW-Authenticate'] = %(Basic realm="TweetClone")
+      throw(:halt, [401, "Not authorized\n"])
+    end
+  end
+  
+  # We check the authorization by 
+  # -- getting a new instance of Rack's basic access authentication request 
+  # and making sure that it's 
+  # -- it's really HTTP basic access authentication and that 
+  # --- credentials are provided. 
+  # Then we run a check on the authorization credentials.
+  def authorized?
+     @auth ||= Rack::Auth::Basic::Request.new(request.env)
+     @auth.provided? &&
+     @auth.basic? &&
+     @auth.credentials &&
+     check(@auth.credentials)
+  end
+  
+  def check(redentials) # array
+    # email, password = *credentials
+    email, password = credentials
+    return false unless User.first(:email => email) 
+    response = RequestClient.post 'https://www.google.com/accounts/ClientLogin',
+                                  'accountType' => 'HOSTED_OR_GOOGLE', 
+                                  'Email'       => email, 
+                                  'Passwd'      => password, 
+                                  :service      => 'xapi', 
+                                  :source       => 'Goog-Auth-1.0'
+    response.code == 200
+  end
+  
  
- 
+  
 end
+
+  
+
+ 
    
    
    

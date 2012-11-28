@@ -1,13 +1,30 @@
 require 'sinatra'
 require 'digest/md5'
-require 'rack-flash'
+# require 'rack-flash'
 require 'json'
 require 'haml'
 require_relative 'model'
+require_relative 'helpers'  # not found automatically
 
+# Use Shotgun:
+# gem install shotgun
+# shotgun -p 4567 tweetclone.rb
+# source: http://ruby.about.com/od/sinatra/a/sinatra5.htm
+
+# =======================
+
+# Rack::Flash not working anymore:
+# https://github.com/nakajima/rack-flash/issues/8
+# use Rack::Flash
+
+# Alternative: use sinatra-flash
+# https://github.com/SFEley/sinatra-flash
+# gem install sinatra-flash
+require 'sinatra/flash'
+
+# http://www.sinatrarb.com/configuration.html
 set :sessions, true
 set :show_exceptions, true
-use Rack::Flash
 
 #If the user is already logged in and has a session, 
 # we will redirect him to his home page. 
@@ -52,9 +69,9 @@ post '/after_login' do
     # if !user
       # but then there are no error message to extract 
     if user.valid?
-      user.save  
+      user.save 
       session[:userid] = user.id
-      redirect '/#{user.nickname}'
+      redirect '/#{user.nickname}' # SELECT * FROM "users" WHERE ("id" IS NULL) LIMIT 1
     else
       flash[:error] = user.errors.full_messages
       redirect '/change_profile'
@@ -176,6 +193,52 @@ post '/message/send' do
   redirect '/messages/sent'
 end
 
+# followers of logged in user
+get '/followers' do
+  load_user(session[:userid])
+  @users = @myself.followers
+  @message_count = message_count
+  haml :followers
+end
+
+
+# users that logged in user is following
+get '/follows' do
+  load_user(session[:userid])
+  @users = @myself.follows
+  @message_count = message_count
+  haml :follows
+end
+
+# NOTE from the book:
+# Notice that we did not do anything to secure the usage of the following features. 
+# To re-iterate what was mentioned earlier, 
+# the code in this chapter and in the whole book has only feature considerations 
+# and not security or exception handling.
+
+
+# To follow a user with the nickname Tom ,we go to the URL
+# address http://tweetclone.saush.com/follow/tom. 
+get '/follow/:nickname' do
+  user_id     = User.first(:nickname => params[:nickname]).id
+  follower_id = User.first(:id => session[:userid]) # logged-in user
+  Relationship.create(:user_id => user_id, :follower_id => follower_id)
+  redirect "/#{params[:nickname]}"
+end
+
+# To delete a follows relationship, we pass in 
+# -- the follower ID and 
+# -- the ID of the user being followed 
+# Question:
+# Why not use :nickname instead of :id as above?
+# Why not get :follower_id from session id as above?
+# => delete 'follow/:nickname' do
+delete 'follow/:follower/:followed' do
+  user_id      = params[:followed].id
+  follower_id  = params[:follower].id
+  relationship = Relationship.first(:user_id => user_id, :follower_id => follower_id)
+  relationship.destroy
+end
 
 
 
@@ -201,4 +264,9 @@ end
 
 
 
-  
+
+
+
+
+
+
