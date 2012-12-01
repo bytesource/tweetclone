@@ -101,7 +101,7 @@ class Status < Sequel::Model
       @mentions.each do |id|
         # self already saved to database => We have self.id
         # Avoid double entries:
-        Mention.create(:user_id => id, :status_id => self.id) unless Mention.first(:user_id => id, :status_id => self.id)
+        Mention.create(:user_id => id, :status_id => self.id) 
       end
     end
     
@@ -155,7 +155,9 @@ class Status < Sequel::Model
   # Process follow commands
   def process_follow
     user     = User.first(:nickname => self.text.split[1]) 
-    Relationship.create(:user_id => user.id, :follower_id => self.owner.id)
+    unless Relationship.first(:user_id => user.id, :follower_id => self.owner.id)
+      Relationship.create(:user_id => user.id, :follower_id => self.owner.id)
+    end
     # We stop processing at this point because we don't want to save the tweet (
     # it's not really a tweet but a command to Tweetclone), 
     # so we throw a halt exception, which DataMapper will interpret, stopping the save from proceeding.

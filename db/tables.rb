@@ -68,10 +68,12 @@ DB.create_table? :relationships do # join table users <=> users
 end
 
 DB.create_table? :mentions do     # join table users <=> statuses
+  DateTime    :created_at, :null => false
   # foreign_key :user_id,      :users,    :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade
   foreign_key :user_id,      :users,    :key => :id, :on_update => :cascade, :on_delete => :cascade
   foreign_key :status_id,    :statuses, :key => :id, :on_update => :cascade, :on_delete => :cascade
-  primary_key [:user_id, :status_id]
+  primary_key [:user_id, :status_id, :created_at]
+  # add :created add to primary key to allow for several identical mentions
 end
 
 
@@ -85,6 +87,19 @@ end
 # 3) A user can have one or more statuses, 
 #    while only one user can be the recipient of a status. 
 # 4) A user can also have one or more direct messages (because we're modeling direct messages with statuses.)
+
+class Sequel::Model
+  # http://sequel.rubyforge.org/rdoc/files/doc/model_hooks_rdoc.html
+  def before_create # right before insert
+    self.created_at ||= Time.now  if self.respond_to?(:created_at)
+    super # ($)
+  end
+end
+
+# ($)
+# The one important thing to note here is the call to super inside the hook. 
+# Whenever you override one of Sequel::Model's methods, 
+# you should be calling super to get the default behavior. 
 
 
 class User < Sequel::Model
@@ -149,20 +164,9 @@ class Status < Sequel::Model
   many_to_one  :owner,           :class => :User, :key => :owner_id
   many_to_many :mentions,        :class => :User, :join_table => :mentions, :left_key => :status_id, :right_key => :user_id
   many_to_many :mentioned_users, :class => :User, :join_table => :mentions, :left_key => :user_id, :right_key => :status_id
-  
-  # http://sequel.rubyforge.org/rdoc/files/doc/model_hooks_rdoc.html
-  def before_create # right before insert
-    self.created_at ||= Time.now
-    super # ($)
-  end
-  
-  
-  
 end
 
-# ($)
-# The one important thing to note here is the call to super inside the hook. 
-# Whenever you override one of Sequel::Model's methods, you should be calling super to get the default behavior. 
+
 
 
 # Datamapper Associations:

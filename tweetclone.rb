@@ -246,7 +246,9 @@ end
 get '/follow/:nickname' do
   user_id     = User.first(:nickname => params[:nickname]).id
   follower_id = User.first(:id => session[:userid]) # logged-in user
-  Relationship.create(:user_id => user_id, :follower_id => follower_id)
+  unless Relationship.first(:user_id => user_id, :follower_id => follower_id)
+    Relationship.create(:user_id => user_id, :follower_id => follower_id)
+  end
   redirect "/#{params[:nickname]}"
 end
 
