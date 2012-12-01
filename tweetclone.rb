@@ -1,3 +1,8 @@
+# Deployed at:
+# http://chatcloud.herokuapp.com
+# (Application error because of problems with the database)
+
+
 require 'sinatra'
 require 'rest-client'  # NOT 'restclient'
 require 'digest/md5'
