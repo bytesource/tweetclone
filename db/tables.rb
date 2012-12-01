@@ -24,14 +24,14 @@ end
 #                                                    drop table users, statuses, relationships, mentions cascade;
 DB.create_table? :users do
   primary_key :id
-  String      :nickname,       :size => 255, :unique => true
-  String      :email,          :size => 255
-  String      :formatted_name, :size => 255# , :null => false
-  String      :provider,       :size => 255# , :null => false
-  String      :identifier,     :size => 255# , :null => false    # Google OpenID identifier used by RPX (1)
-  String      :phote_url,      :size => 255# , :null => false
-  String      :location,       :size => 255# , :null => false
-  String      :description,    :size => 255# , :null => false
+  String      :nickname,       :size => 255, :null => false, :unique => true
+  String      :email,          :size => 255, :null => false
+  String      :formatted_name, :size => 255
+  String      :provider,       :size => 255, :null => false
+  String      :identifier,     :size => 255, :null => false, :unique => true    # Google OpenID identifier used by RPX (1)
+  String      :photo_url,      :size => 255, :null => false
+  String      :location,       :size => 255
+  String      :description,    :size => 255
 end
 
 # (1)
@@ -54,8 +54,8 @@ DB.create_table? :statuses do
   foreign_key :recipient_id,   :users, :key => :id, :on_update => :cascade, :on_delete => :set_null
   # :on_update, :on_delete: see http://sequel.rubyforge.org/rdoc/files/doc/schema_modification_rdoc.html
   # foreign_key :owner_id,       :users, :key => :nickname, :type => String, :on_update => :cascade, :on_delete => :cascade   # who is the sender
-  foreign_key :owner_id,       :users, :key => :id, :on_update => :cascade, :on_delete => :cascade   # who is the sender
-  String      :text,        :size => 140, :null => false
+  foreign_key :owner_id,       :users, :key => :id, :on_update => :cascade, :on_delete => :cascade, :null => false   # who is the sender
+  String      :text,        :size => 255, :null => false
   DateTime    :created_at,  :null => false
 end
 
@@ -110,6 +110,14 @@ class User < Sequel::Model
   end
 end
 
+class Mention < Sequel::Model
+ # Dummy class to make available class methods like ::new and ::create 
+end
+
+class Relationship < Sequel::Model
+  
+end
+
 # Friends association using ::many_to_many
 # User.many_to_many :friends, :class=>User, 
 #                   :dataset=>proc{User.join(:relationships___ru, :user_id => :nickname).
@@ -120,6 +128,8 @@ end
 
 # http://sequel.rubyforge.org/rdoc/classes/Sequel/Model/ClassMethods.html#method-i-unrestrict_primary_key
 User.unrestrict_primary_key
+Mention.unrestrict_primary_key
+Relationship.unrestrict_primary_key
 # Allow the setting of the primary key(s) when using the mass assignment methods. 
 # Using this method can open up security issues, be very careful before using it.
 

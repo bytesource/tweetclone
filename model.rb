@@ -9,7 +9,13 @@ class User < Sequel::Model
   
   def validate
     super
-    validates_unique :nickname
+    # presence = not blank (no 'nil' or empty string)
+    validates_presence [:nickname, :email, :provider, :identifier, :photo_url]
+   
+    # allow_nil => true
+    # If values are not present (= nil), skip this validation,
+    # as there already will be an error message from #validates_presence 
+    validates_unique [:nickname, :identifier], :allow_nil => true
   end
   
   # Return a user, given the OpenID identifier. 
@@ -28,11 +34,11 @@ class User < Sequel::Model
   
 
   # Return those messages of user that are not direct messages.
-  def query(user)
+  def query(user=self)
     # :recipient => nil ... (only direct messages have a recipient)
     # http://sequel.rubyforge.org/rdoc/files/doc/association_basics_rdoc.html => dataset_methods
     # user.statuses_dataset.filter(:recipient => nil).limit(10).order(:created_at)
-    user.statuses { |ds| ds.filter(:recipient => nil).limit(10).order(:created_at)}
+    user.statuses { |ds| ds.filter(:recipient_id => nil).limit(10).order(:created_at)}
     # "SELECT * FROM \"statuses\" 
     #    WHERE ((\"statuses\".\"user_id\" = 2) AND 
     #          (\"recipient\" IS NULL))
@@ -45,7 +51,7 @@ class User < Sequel::Model
   # -- Messages of people he follows.
   def displayed_statuses
     statuses = []
-    statuses += self.query.all
+    statuses += self.query #.all
    
     if @myself == @user  # TODO: I don't think the 'self' below is necessary => check
       self.follows.each { |follows| statuses += query(follows).all }  # ORDER BY clause not really necessary as we sort below anyway.
@@ -92,8 +98,10 @@ class Status < Sequel::Model
   
   def after_save 
     unless @mentions.nil? # @mentions = ['nick1', 'nick2', ...]
-      @mentions.each do |nickname|
-        Mention.create(:user_id => nickname, :status_id => self.id) # self already saved to database => We have self.id
+      @mentions.each do |id|
+        # self already saved to database => We have self.id
+        # Avoid double entries:
+        Mention.create(:user_id => id, :status_id => self.id) unless Mention.first(:user_id => id, :status_id => self.id)
       end
     end
     
@@ -131,7 +139,7 @@ class Status < Sequel::Model
         # Problem: self not saved to database yet (we are inside #before_save) so there is no self.id
         # Solution: We store the nicknames of all mentioned users in an array and create and save Mention instances
         #           AFTER self (this status) has been save to the database.
-        @mentions << nickname
+        @mentions << user.id
       end
     end
   end
@@ -139,7 +147,7 @@ class Status < Sequel::Model
   # Process direct messages
   def process_direct_message
     addressee = User.first(:nickname => self.text.split[1])  # text.split => ['D', 'nickname', 'many', 'more', 'words']
-    self.recipient = addressee.id
+    self.recipient = addressee  # one-to-one association
     self.text = self.text.split[2..-1].join(' ')             # remove the first 2 words
     process
   end

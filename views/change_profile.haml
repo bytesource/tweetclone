@@ -2,19 +2,20 @@
 -if flash[:error]
   .span-14.prepend-2.last
     .error 
-      =flash[:error]
-
+      -flash[:error].each do |error| 
+        =error
 .span-24.last
   %h2.comic Please provide some information for your new account. Put in at least a nickname, else we'll generate one for you! (you can change it later though)
 %form{:method => 'post', :action => '/save_profile' }
   .span-5 
     A nickname for your account
   .span-18.last
-    %input{:type => 'text', :name => 'nickname'}
+    %input{:type => 'text', :name => 'nickname', :value => "locals[:user].nickname"}
   .span-5
     Your name
   .span-18.last
-    %input.span-12{:type => 'text', :name => 'formatted_name'}
+    %input.span-12{:type => 'text', :name => 'formatted_name', :value => "helllo"}
+    
   .span-5
     Where are you?
   .span-18.last

@@ -1,8 +1,13 @@
 require 'sinatra'
+require 'rest-client'  # NOT 'restclient'
 require 'digest/md5'
 # require 'rack-flash'
 require 'json'
 require 'haml'
+
+# http://sinatra-book.gittr.com/#hello_world_application
+require 'bundler/setup'
+
 require_relative 'model'
 require_relative 'helpers'  # not found automatically
 
@@ -33,7 +38,8 @@ set :show_exceptions, true
 # after successfully authenticating the user.
 get '/' do
   user = session[:userid]
-  if user.nil?
+  puts "session[:userid] = #{session[:userid]}---------------------------"
+  if user.nil? || !User.first(:id => user) # session id still set, but database is empty (happens during development)
     @token = "http://#{env['HTTP_HOST']}/after_login"  # will call our :after_login on completing authentication
     haml :login
   else # already logged in
@@ -50,18 +56,22 @@ post '/after_login' do
     session[:userid] = user.id
     redirect "/#{user.nickname}"
   else # user not in database => new user
+    puts "my profile ___________________________________"
+    p profile
     gravatar = "http://www.gravatar.com/avatar/" # returns default picture if user has not gravatar
     # check for email redundant as user has to login with his Gmail address.
     photo = profile['email'] ? "#{gravatar}#{Digest::MD5.hexdigest(profile['email'])}" : profile['photo']
     # If :nickname is empty, a random string is set, based on the hash of the identifier, 
     # converted into an alphanumeric string:
     nick = profile['nickname']
-    nick = nick ? nick : profile['identifier'].to_hash.to_s(36) 
-    
-    user = User.new(:nickname  => nick, 
-                    :email     => profile['email'], 
-                    :photo_url => photo,
-                    :provider  => profile['provider'])
+    nick = nick ? nick : profile['identifier'].hash.to_s(36) 
+    # Example profile: http://developers.janrain.com/documentation/api-methods/engage/auth_info/
+    user = User.new(:nickname       => nick, 
+                    :formatted_name => profile['name']['formatted'],
+                    :email          => profile['email'], 
+                    :photo_url      => photo,
+                    :provider       => profile['providerName'],
+                    :identifier     => profile['identifier'])
     # TODO: Add validation to match all database constraints on the Users table.   
     # More save alternative (as all database constraints will be checked automatically)
     # User.raise_on_save_failure = false
@@ -70,8 +80,10 @@ post '/after_login' do
       # but then there are no error message to extract 
     if user.valid?
       user.save 
-      session[:userid] = user.id
-      redirect '/#{user.nickname}' # SELECT * FROM "users" WHERE ("id" IS NULL) LIMIT 1
+      # Load new instance from database to get hold of the primary key id
+      user = User.first(:nickname => nick) 
+      session[:userid] = user.id  
+      redirect '/#{user.nickname}' 
     else
       flash[:error] = user.errors.full_messages
       redirect '/change_profile'
@@ -102,8 +114,11 @@ post '/save_profile' do
       user.save_changes
       redirect "/#{user.nickname}"
     else
-      flash[:error] = user.error.full_messages
-      redirect '/change_profile'
+      flash.now[:error] = user.errors.full_messages
+      # http://stackoverflow.com/questions/2704772/passing-data-between-blocks-using-sinatra
+      haml :change_profile, :locals => {:user => user}
+      # flash[:error] = user.error.full_messages
+      # redirect '/change_profile'
     end
   # Error on save at '/after_login'. Got redirected to '/change_profile', resulting data redirected here.
   else
@@ -112,8 +127,10 @@ post '/save_profile' do
       user.save
       redirect "/#{user.nickname}"
     else
-      flash[:error] = user.error.full_messages
-      redirect '/change_profile'
+      flash.now[:error] = user.error.full_messages
+      haml :change_profile, :locals => {:user => user}
+      # flash[:error] = user.error.full_messages
+      # redirect '/change_profile'
     end
   end
 end
@@ -125,22 +142,6 @@ get '/logout' do
 end 
 
 
-get '/:nickname' do
-  load_user(session[:userid])
-  # Example of @user != @myself
-  # @myself logged in as 'Bytesource' opening the personal site of one of my followers.
-  @user = @myself.nickname == params[:nickname] ? @myself : User.first(:nickname => params[:nickname])
-  @message_count = message_count
-  if @myself == @user # redundant: we already have this checked in #diplayed_statuses
-    @statuses = @myself.displayed_statuses
-    haml :home
-  else 
-    @statuses = @user.statuses
-    haml :user
-  end
-end
-
-
 # To post status updates, the user submits a post form on 'home.haml'. 
 # The route then takes in the status text and creates the Status object. 
 # Note that when the Status object is created and saved,
@@ -148,9 +149,9 @@ end
 # After the status is saved to the database, the user is 
 # redirected back to the home page, clearing the update text box.
 post '/update' do
-  user = User.first(session[:userid])
-  message = Status.create(:text => params[:status])
-  user.add_status(message)
+  user = User.first(:id => session[:userid])
+  message = Status.create(:text => params[:status], :owner_id => user.id) # made :owner_id :null => false to be safe
+  # user.add_status(message)   This did not work for some reason
   redirect "/#{user.nickname}"
 end
 
@@ -167,30 +168,6 @@ get '/tweets' do
   load_user(session[:userid])
   @status = @myself.statuses
   haml :user
-end
-
-
-get '/messages/:direction' do
-  load_user(session[:userid])
-  @friend = @myself.friends
-  case params[:direction]
-  when 'received' 
-    @messages = Status.filter(:recipient_id => @myself.id).all
-    @label    = "Direct messages sent only to you"
-  when 'sent'
-    @messages = Status.filter(:owner_id => @myself.id).exclude(:recipient_id => nil).all
-    @label    = "Direct messages you've sent"
-  end
-  @message_count = message_count
-  haml :messages
-end
-
-post '/message/send' do
-  recipient = User.first(:nickname => params[:recipient])
-  Status.create(:text         => params[:message],
-                :owner_id     => User.first(:id => session[:userid]),
-                :recipient_id => recipient)
-  redirect '/messages/sent'
 end
 
 # followers of logged in user
@@ -215,6 +192,48 @@ end
 # To re-iterate what was mentioned earlier, 
 # the code in this chapter and in the whole book has only feature considerations 
 # and not security or exception handling.
+
+# Catch-all :nickname root to be placed after all more specific routes like 'update', 'replies', etc.
+get '/:nickname' do
+  load_user(session[:userid])
+  # Example of @user != @myself
+  # @myself logged in as 'Bytesource' opening the personal site of one of my followers.
+  @user = @myself.nickname == params[:nickname] ? @myself : User.first(:nickname => params[:nickname])
+  @message_count = message_count
+  if @myself == @user # redundant: we already have this checked in #diplayed_statuses
+    @statuses = @myself.displayed_statuses
+    haml :home
+  else 
+    @statuses = @user.statuses
+    haml :user
+  end
+end
+
+
+get '/messages/:direction' do
+  load_user(session[:userid])
+  @friends = @myself.friends
+  case params[:direction]
+  when 'received' 
+    @messages = Status.filter(:recipient_id => @myself.id).all
+    @label    = "Direct messages sent only to you"
+  when 'sent'
+    @messages = Status.filter(:owner_id => @myself.id).exclude(:recipient_id => nil).all
+    @label    = "Direct messages you've sent"
+  end
+  @message_count = message_count
+  haml :messages
+end
+
+post '/message/send' do
+  recipient = User.first(:nickname => params[:recipient])
+  Status.create(:text         => params[:message],
+                :owner_id     => User.first(:id => session[:userid]),
+                :recipient_id => recipient)
+  redirect '/messages/sent'
+end
+
+
 
 
 # To follow a user with the nickname Tom ,we go to the URL

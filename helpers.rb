@@ -6,10 +6,13 @@ helpers do
  # RPX passes a token parameter to us in this call, 
  # which we will use to retrieve the user's profile.
  def get_user_profile_with(token)
-   response = RestClient.post 'https://rpxnow.com/api/v2/auth_info', 'token'    => token,
-                                                                     'apiKey'   => '<api key>',
-                                                                     'format'   => 'json',
-                                                                     'extended' => 'true'
+   # http://developers.janrain.com/documentation/api-methods/engage/auth_info/
+   api_key   = "cc97167b7007ee2faf08abde4cc555fb1e0613fe"
+   response  = RestClient.post('https://rpxnow.com/api/v2/auth_info',
+                               'token'    => token,
+                               'apiKey'   => api_key,
+                               'format'   => 'json',
+                               'extended' => 'true')
    json = JSON.parse(response)
    if json['stat'] == 'ok'
      return json['profile']
